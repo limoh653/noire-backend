@@ -5,17 +5,12 @@ from flask_cors import CORS
 from models import db, Contact
 import resend
 from dotenv import load_dotenv
+from datetime import datetime
 
-# ======================
-# LOAD ENVIRONMENT VARIABLES
-# ======================
 load_dotenv()
 
 app = Flask(__name__)
 
-# ======================
-# CONFIGURATION
-# ======================
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
@@ -24,38 +19,27 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
 )
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-# ======================
-# INIT EXTENSIONS
-# ======================
 db.init_app(app)
 migrate = Migrate(app, db)
 
-# ======================
-# CORS CONFIG
-# ======================
-# Only allow API routes; supports preflight and all methods
-CORS(app, resources={r"/*": {"origins": "*"}})
+# ✅ Automatically create tables
+with app.app_context():
+    db.create_all()
 
-# ======================
-# RESEND CONFIG
-# ======================
+# ✅ Allow all origins (adjust for production)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
+
 resend.api_key = os.getenv("RESEND_API_KEY")
 FROM_EMAIL = os.getenv("FROM_EMAIL")
 TO_EMAIL = os.getenv("TO_EMAIL")
-
-# ======================
-# ROUTES
-# ======================
 
 @app.route("/", methods=["GET"])
 def home():
     return "API is running 🚀"
 
-
 @app.route("/api/contact", methods=["POST"])
 def create_contact():
     data = request.get_json()
-
     name = data.get("name")
     email = data.get("email")
     project_type = data.get("projectType")
@@ -65,15 +49,19 @@ def create_contact():
         return jsonify({"error": "All fields are required"}), 400
 
     # Save to DB
-    new_contact = Contact(
-        name=name,
-        email=email,
-        project_type=project_type,
-        message=message
-    )
-
-    db.session.add(new_contact)
-    db.session.commit()
+    try:
+        new_contact = Contact(
+            name=name,
+            email=email,
+            project_type=project_type,
+            message=message,
+            created_at=datetime.utcnow()  # ✅ ensure created_at exists
+        )
+        db.session.add(new_contact)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Database error: {e}"}), 500
 
     # Send email
     try:
@@ -95,11 +83,9 @@ def create_contact():
 
     return jsonify({"message": "Message sent successfully"}), 201
 
-
 @app.route("/api/contacts", methods=["GET"])
 def get_contacts():
     contacts = Contact.query.order_by(Contact.created_at.desc()).all()
-
     return jsonify([
         {
             "id": c.id,
@@ -111,10 +97,5 @@ def get_contacts():
         } for c in contacts
     ])
 
-
-# ======================
-# RUN (LOCAL ONLY)
-# ======================
 if __name__ == "__main__":
-    # In Render, gunicorn will run this automatically
     app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
