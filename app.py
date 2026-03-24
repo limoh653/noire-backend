@@ -20,7 +20,7 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
     "DATABASE_URL",
-    "sqlite:///" + os.path.join(BASE_DIR, "contact.db")  # fallback to SQLite
+    "sqlite:///" + os.path.join(BASE_DIR, "contact.db")
 )
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
@@ -31,16 +31,15 @@ db.init_app(app)
 migrate = Migrate(app, db)
 
 # ======================
-# CORS (Quick Test)
+# CORS CONFIG
 # ======================
-# Allows requests from ANY origin temporarily for testing
-CORS(app)
+# Only allow API routes; supports preflight and all methods
+CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 
 # ======================
 # RESEND CONFIG
 # ======================
 resend.api_key = os.getenv("RESEND_API_KEY")
-
 FROM_EMAIL = os.getenv("FROM_EMAIL")
 TO_EMAIL = os.getenv("TO_EMAIL")
 
@@ -48,9 +47,10 @@ TO_EMAIL = os.getenv("TO_EMAIL")
 # ROUTES
 # ======================
 
-@app.route("/")
+@app.route("/", methods=["GET"])
 def home():
     return "API is running 🚀"
+
 
 @app.route("/api/contact", methods=["POST"])
 def create_contact():
@@ -95,9 +95,11 @@ def create_contact():
 
     return jsonify({"message": "Message sent successfully"}), 201
 
+
 @app.route("/api/contacts", methods=["GET"])
 def get_contacts():
     contacts = Contact.query.order_by(Contact.created_at.desc()).all()
+
     return jsonify([
         {
             "id": c.id,
@@ -109,8 +111,10 @@ def get_contacts():
         } for c in contacts
     ])
 
+
 # ======================
-# RUN LOCAL ONLY
+# RUN (LOCAL ONLY)
 # ======================
 if __name__ == "__main__":
-    app.run(debug=True)
+    # In Render, gunicorn will run this automatically
+    app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
