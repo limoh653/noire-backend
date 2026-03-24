@@ -34,7 +34,7 @@ migrate = Migrate(app, db)
 # CORS CONFIG
 # ======================
 # Only allow API routes; supports preflight and all methods
-CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # ======================
 # RESEND CONFIG
