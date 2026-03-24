@@ -32,7 +32,7 @@ migrate = Migrate(app, db)
 # Allow your Netlify frontend
 CORS(app, origins=[
     "http://localhost:5173",  # local dev
-    "https://noire-web-design.netlify.app/"  # 🔥 replace this
+    "https://noire-web-design.netlify.app"  # 🔥 replace this
 ])
 
 # ======================
